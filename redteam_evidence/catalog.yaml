@@ -1,0 +1,50 @@
+# Maps red-team tool test identifiers to controls. Patterns are shell-style globs matched
+# against the garak probe name (module.Class) or the promptfoo plugin id. Every matching rule
+# applies, so one test can evidence several controls. A test that matches nothing is reported
+# as unmapped rather than silently dropped; extend this file to cover it.
+
+garak:
+  - {match: "promptinject.*",       controls: [RT-01]}
+  - {match: "encoding.*",           controls: [RT-01]}       # instructions smuggled in base64, ROT13, ...
+  - {match: "latentinjection.*",    controls: [RT-02]}       # instructions hidden in documents the model reads
+  - {match: "dan.*",                controls: [RT-03]}
+  - {match: "tap.*",                controls: [RT-03]}
+  - {match: "suffix.*",             controls: [RT-03]}
+  - {match: "grandma.*",            controls: [RT-03]}
+  - {match: "leakreplay.*",         controls: [RT-05]}       # regurgitating training data
+  - {match: "lmrc.*",               controls: [RT-06]}
+  - {match: "realtoxicityprompts.*", controls: [RT-06]}
+  - {match: "continuation.*",       controls: [RT-06]}
+  - {match: "malwaregen.*",         controls: [RT-06]}
+  - {match: "xss.*",                controls: [RT-07]}       # markdown image exfiltration and script output
+  - {match: "exploitation.*",       controls: [RT-07]}       # template and SQL injection through output
+  - {match: "packagehallucination.*", controls: [RT-09]}
+  - {match: "snowball.*",           controls: [RT-09]}
+  - {match: "misleading.*",         controls: [RT-09]}
+
+promptfoo:
+  plugins:
+    - {match: "hijacking",                  controls: [RT-01]}
+    - {match: "indirect-prompt-injection",  controls: [RT-02]}
+    - {match: "prompt-extraction",          controls: [RT-04]}
+    - {match: "pii",                        controls: [RT-05]}
+    - {match: "pii:*",                      controls: [RT-05]}
+    - {match: "harmful:privacy",            controls: [RT-05]}
+    - {match: "cross-session-leak",         controls: [RT-05]}
+    - {match: "harmful:*",                  controls: [RT-06], unless: ["harmful:privacy"]}
+    - {match: "sql-injection",              controls: [RT-07]}
+    - {match: "shell-injection",            controls: [RT-07]}
+    - {match: "excessive-agency",           controls: [RT-08]}
+    - {match: "rbac",                       controls: [RT-08]}
+    - {match: "bola",                       controls: [RT-08]}
+    - {match: "bfla",                       controls: [RT-08]}
+    - {match: "ssrf",                       controls: [RT-08]}
+    - {match: "hallucination",              controls: [RT-09]}
+    - {match: "overreliance",               controls: [RT-09]}
+    - {match: "bias:*",                     controls: [RT-10]}
+  # A delivery strategy adds evidence for the control it attacks, on top of the plugin's own control.
+  strategies:
+    - {match: "prompt-injection",  controls: [RT-01]}
+    - {match: "jailbreak*",        controls: [RT-03]}
+    - {match: "crescendo",         controls: [RT-03]}
+    - {match: "goat",              controls: [RT-03]}

@@ -1,0 +1,79 @@
+import json
+
+import pytest
+
+from conftest import EXAMPLES
+from redteam_evidence.__main__ import main
+from redteam_evidence.compare import compare, load_summary
+from redteam_evidence.report import sha256
+
+HASHED = ('control_id', 'system', 'version', 'sources', 'result', 'failing_attempts')
+
+
+@pytest.fixture(scope='module')
+def assessed(tmp_path_factory):
+    out = tmp_path_factory.mktemp('assessments')
+    for v in ('v1', 'v2'):
+        assert main(['assess', str(EXAMPLES / v), '--system', 'Acme', '--version', v, '--out', str(out / v)]) == 0
+    return out
+
+
+def test_recommendations(assessed):
+    assert load_summary(assessed / 'v1' / 'summary.json')['recommendation'] == 'REVIEW'   # RT-10 never tested
+    assert load_summary(assessed / 'v2' / 'summary.json')['recommendation'] == 'BLOCK'
+
+
+def test_evidence_hash_detects_tampering(assessed):
+    rec = json.loads((assessed / 'v2' / 'evidence' / 'RT-04.json').read_text(encoding='utf-8'))
+    hashed = {k: rec[k] for k in HASHED}
+    assert sha256(hashed) == rec['sha256']
+    hashed['result']['failures'] = 0
+    assert sha256(hashed) != rec['sha256']
+
+
+def test_failing_attempts_keep_hashes_and_excerpts(assessed):
+    rec = json.loads((assessed / 'v2' / 'evidence' / 'RT-04.json').read_text(encoding='utf-8'))
+    assert len(rec['failing_attempts']) == 4
+    a = rec['failing_attempts'][0]
+    assert len(a['prompt_sha256']) == 64 and a['response_excerpt'].startswith('You are AcmeBot')
+
+
+def test_no_excerpts_keeps_text_out_of_every_output(tmp_path):
+    out = tmp_path / 'redacted'
+    main(['assess', str(EXAMPLES / 'v2'), '--system', 'Acme', '--version', 'v2', '--out', str(out), '--no-excerpts'])
+    blob = ''.join(p.read_text(encoding='utf-8') for p in out.rglob('*') if p.is_file())
+    assert 'ESC-ACME-EXAMPLE' not in blob and 'j.rivera@example.com' not in blob
+    rec = json.loads((out / 'evidence' / 'RT-05.json').read_text(encoding='utf-8'))
+    assert 'response_excerpt' not in rec['failing_attempts'][0] and rec['failing_attempts'][0]['response_sha256']
+
+
+def test_oscal(assessed):
+    doc = json.loads((assessed / 'v2' / 'oscal' / 'assessment-results.json').read_text(encoding='utf-8'))
+    res = doc['assessment-results']['results'][0]
+    states = {f['target']['target-id']: f['target']['status']['state'] for f in res['findings']}
+    assert states['rt-04'] == 'not-satisfied' and states['rt-01'] == 'satisfied'
+    assert len(res['observations']) == 2
+    props = {p['value'] for f in res['findings'] if f['target']['target-id'] == 'rt-04' for p in f['props']}
+    assert {'OWASP LLM LLM07', 'MITRE ATLAS AML.T0056'} <= props
+
+
+def test_compare_finds_the_regressions(assessed):
+    rows = compare(load_summary(assessed / 'v1' / 'summary.json'), load_summary(assessed / 'v2' / 'summary.json'))
+    assert [r['control_id'] for r in rows if r['regression']] == ['RT-03', 'RT-04', 'RT-05', 'RT-06']
+    assert [r['control_id'] for r in rows if r['improved']] == ['RT-09', 'RT-10']
+
+
+def test_compare_cli_gate(assessed, tmp_path):
+    v1, v2 = str(assessed / 'v1' / 'summary.json'), str(assessed / 'v2' / 'summary.json')
+    assert main(['compare', v1, v2, '--out', str(tmp_path / 'c.md')]) == 0
+    assert main(['compare', v1, v2, '--out', str(tmp_path / 'c.md'), '--fail-on-regression']) == 1
+    assert main(['compare', v1, v1, '--out', str(tmp_path / 'same.md'), '--fail-on-regression']) == 0
+    assert 'RT-04' in (tmp_path / 'c.md').read_text(encoding='utf-8')
+
+
+def test_assess_gate(tmp_path):
+    args = ['assess', str(EXAMPLES / 'v2'), '--system', 'Acme', '--version', 'v2', '--out', str(tmp_path)]
+    assert main(args + ['--fail-on', 'fail']) == 1
+    assert main(['assess', str(EXAMPLES / 'v1'), '--system', 'Acme', '--version', 'v1',
+                 '--out', str(tmp_path / 'v1'), '--fail-on', 'fail']) == 0     # REVIEW is not BLOCK
+    assert main(['assess', str(tmp_path / 'nothing-here'), '--system', 'x', '--version', 'y']) == 2

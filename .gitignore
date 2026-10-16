@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+build/
+# Assessment output: regenerate with the assess command
+out/
+assessment/
+comparison.md
