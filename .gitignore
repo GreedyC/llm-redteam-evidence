@@ -6,6 +6,6 @@ build/
 # Assessment output: regenerate with the assess command
 out/
 assessment/
-comparison.md
+/comparison.md
 dist/
 redteam-demo/
