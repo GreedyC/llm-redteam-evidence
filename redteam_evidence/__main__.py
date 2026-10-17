@@ -1,5 +1,6 @@
 """CLI.
 
+  redteam-evidence demo                          assess the bundled examples and compare v1 -> v2
   redteam-evidence assess <results...> --system NAME --version LABEL [--out DIR]
   redteam-evidence compare <baseline/summary.json> <candidate/summary.json> [--fail-on-regression]
 """
@@ -7,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from argparse import Namespace
 from pathlib import Path
 
 from .assess import assess
@@ -14,10 +16,21 @@ from .compare import compare, load_summary, write_markdown as write_comparison
 from .parsers import discover
 from .report import recommendation, write_all
 
+EXAMPLES = Path(__file__).parent / 'examples'
+DEMO_SYSTEM = 'Acme Support Assistant'
+
+EPILOG = """examples:
+  redteam-evidence demo
+  redteam-evidence assess ~/.local/share/garak/garak_runs/ --system "Support bot" --version v2 --out out/v2
+  redteam-evidence assess results.json --system "Support bot" --version v2 --no-excerpts --fail-on fail
+  redteam-evidence compare out/v1/summary.json out/v2/summary.json --fail-on-regression
+"""
+
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog='redteam-evidence',
-                                 description='Turn LLM red-team results into audit evidence and a release gate.')
+                                 description='Turn LLM red-team results into audit evidence and a release gate.',
+                                 epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
 
     a = sub.add_parser('assess', help='assess garak / promptfoo results against the control catalog')
@@ -38,8 +51,29 @@ def main(argv: list[str] | None = None) -> int:
                    help='allowed rise in attack success rate, absolute (default 0.02 = 2 points)')
     c.add_argument('--fail-on-regression', action='store_true', help='exit 1 if any control regressed')
 
+    d = sub.add_parser('demo', help='assess the bundled synthetic examples and compare v1 -> v2 (no setup needed)')
+    d.add_argument('--out', type=Path, default=Path('redteam-demo'), help='output folder (default: redteam-demo)')
+
     args = ap.parse_args(argv)
+    if args.cmd == 'demo':
+        return _demo(args.out)
     return _assess(args) if args.cmd == 'assess' else _compare(args)
+
+
+def _demo(out: Path) -> int:
+    print(f'Assessing the bundled synthetic examples in {EXAMPLES}\n')
+    for version in ('v1', 'v2'):
+        print(f'=== {DEMO_SYSTEM} {version}')
+        _assess(Namespace(paths=[EXAMPLES / version], system=DEMO_SYSTEM, version=version,
+                          out=out / version, no_excerpts=False, fail_on='never'))
+        print()
+    print('=== Release comparison v1 -> v2')
+    _compare(Namespace(baseline=out / 'v1' / 'summary.json', candidate=out / 'v2' / 'summary.json',
+                       out=out / 'comparison.md', max_increase=0.02, fail_on_regression=False))
+    print(f'\nOpen {out / "v2" / "report.md"} for the full assessment and {out / "comparison.md"} for the '
+          f'release gate.\nThe examples are synthetic; see the README for running garak or promptfoo '
+          f'against a real model.')
+    return 0
 
 
 def _assess(args) -> int:

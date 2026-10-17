@@ -1,0 +1,24 @@
+name: Bug report
+description: A wrong result, a crash, or a result file the tool can't read
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations: {required: true}
+  - type: input
+    id: tool
+    attributes:
+      label: Red-team tool and version
+      description: e.g. garak 0.13.0, promptfoo 0.118.0
+  - type: textarea
+    id: sample
+    attributes:
+      label: A minimal result file or excerpt that reproduces it
+      description: Remove harmful model output, personal data and secrets first.
+      render: json
+  - type: input
+    id: version
+    attributes:
+      label: llm-redteam-evidence version or commit

@@ -2,7 +2,7 @@
 
 These files are **synthetic**. They follow the structure of real garak `report.jsonl` and promptfoo results JSON so the tool can be demonstrated without running attacks against a live model, but no model produced them:
 
-- Every prompt and response is written in [`scripts/make_examples.py`](../scripts/make_examples.py), and CI checks that the files match the generator exactly.
+- Every prompt and response is written in [`scripts/make_examples.py`](../../scripts/make_examples.py), and CI checks that the files match the generator exactly.
 - Harmful content is replaced with placeholders such as `[harmful output withheld from this example]`.
 - Names, emails and phone numbers are reserved example values (`example.com`, `555-01xx`).
 

@@ -66,5 +66,5 @@ def write_markdown(base: dict, cand: dict, rows: list[dict], path: Path, max_inc
             L += ['', '| Test | Before | After |', '|---|---:|---:|']
             L += [f'| `{m["test"]}` | {m["before"] * 100:.1f}% | {m["after"] * 100:.1f}% |' for m in r['movers']]
     L += ['', f'Baseline evidence: {base["generated"]} · Candidate evidence: {cand["generated"]}']
-    path.write_text('\n'.join(L) + '\n', encoding='utf-8')
+    path.write_text('\n'.join(L) + '\n', encoding='utf-8', newline='\n')
     return path

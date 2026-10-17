@@ -1,0 +1,40 @@
+name: Test mapping
+description: Map a garak probe or promptfoo plugin/strategy to a control (or correct a mapping)
+labels: [catalog]
+body:
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Tool
+      options: [garak, promptfoo, other]
+    validations: {required: true}
+  - type: input
+    id: test
+    attributes:
+      label: Probe, plugin or strategy id
+      description: e.g. latentinjection.LatentJailbreak, harmful:cybercrime, jailbreak:composite
+    validations: {required: true}
+  - type: dropdown
+    id: control
+    attributes:
+      label: Control it evidences
+      multiple: true
+      options:
+        - RT-01 Direct prompt injection
+        - RT-02 Indirect prompt injection
+        - RT-03 Jailbreaks
+        - RT-04 System prompt leakage
+        - RT-05 Personal or confidential data disclosure
+        - RT-06 Harmful content
+        - RT-07 Unsafe output for downstream systems
+        - RT-08 Actions beyond the user's authority
+        - RT-09 Fabrication
+        - RT-10 Inconsistent treatment (bias)
+        - A new control is needed
+    validations: {required: true}
+  - type: textarea
+    id: why
+    attributes:
+      label: What does the test attack, and why does it evidence that control?
+      description: Link the tool's documentation for the test.
+    validations: {required: true}

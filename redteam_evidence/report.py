@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from collections import Counter
 from dataclasses import asdict
@@ -81,9 +82,23 @@ def run_record(run: Run) -> dict:
 
 # --------------------------------------------------------------------------- writers
 
+def build_time() -> datetime:
+    """Now, or SOURCE_DATE_EPOCH when set (the reproducible-builds convention), so a rerun on the
+    same inputs can produce byte-identical output."""
+    epoch = os.environ.get('SOURCE_DATE_EPOCH')
+    if epoch:
+        return datetime.fromtimestamp(int(epoch), timezone.utc)
+    return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def _uid(*parts) -> str:
+    """Deterministic UUID: the same assessment at the same time always gets the same IDs."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, 'llm-redteam-evidence:' + '/'.join(map(str, parts))))
+
+
 def write_all(runs: list[Run], controls: list[ControlResult], unmapped: Counter, out: Path, *,
               system: str, version: str, excerpts: bool = True, generated: datetime | None = None) -> dict[str, Path]:
-    generated = generated or datetime.now(timezone.utc).replace(microsecond=0)
+    generated = generated or build_time()
     out.mkdir(parents=True, exist_ok=True)
     meta = {'system': system, 'version': version, 'generated': generated.isoformat(),
             'recommendation': recommendation(controls), 'runs': [run_record(r) for r in runs]}
@@ -112,7 +127,7 @@ def write_evidence(controls, meta, folder: Path, excerpts: bool) -> dict[str, tu
                   'hash_scope': 'sha256 of canonical JSON (sorted keys, no spaces) of every field except '
                                 'title, frameworks, generated, sha256 and hash_scope'}
         path = folder / f'{c.control_id}.json'
-        path.write_text(json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False) + '\n', encoding='utf-8')
+        path.write_text(json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False) + '\n', encoding='utf-8', newline='\n')
         index[c.control_id] = (path, record['sha256'])
     return index
 
@@ -122,7 +137,7 @@ def write_summary(controls, unmapped, meta, evidence, path: Path) -> Path:
            'controls': [{**{k: v for k, v in asdict(c).items() if k != 'failing'},
                          'evidence_sha256': evidence[c.control_id][1]} for c in controls],
            'unmapped_tests': dict(sorted(unmapped.items()))}
-    path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + '\n', encoding='utf-8', newline='\n')
     return path
 
 
@@ -191,7 +206,7 @@ def write_markdown(controls, unmapped, meta, evidence, path: Path, excerpts: boo
           '| Role | Decision | Name | Date |', '|---|---|---|---|',
           '| AI risk owner | ☐ Approve release ☐ Accept risk with exceptions ☐ Block | | |',
           '| Security reviewer | ☐ Concur ☐ Do not concur | | |']
-    path.write_text('\n'.join(L) + '\n', encoding='utf-8')
+    path.write_text('\n'.join(L) + '\n', encoding='utf-8', newline='\n')
     return path
 
 
@@ -201,7 +216,7 @@ def write_oscal(controls, meta, evidence, path: Path) -> Path:
     observations = []
     for r in meta['runs']:
         observations.append({
-            'uuid': str(uuid.uuid4()),
+            'uuid': _uid(now, meta['version'], 'observation', r['source_sha256']),
             'title': f'{r["tool"]} run against {r["target"]}',
             'description': f'{r["scored"]} scored attacks, {r["failures"]} succeeded.',
             'methods': ['TEST'],
@@ -221,7 +236,7 @@ def write_oscal(controls, meta, evidence, path: Path) -> Path:
         props += [{'name': 'framework-mapping', 'ns': NS, 'value': f'{label} {ref}'}
                   for k, label in FRAMEWORKS.items() for ref in CONTROLS[c.control_id].get(k, [])]
         findings.append({
-            'uuid': str(uuid.uuid4()),
+            'uuid': _uid(now, meta['version'], 'finding', c.control_id),
             'title': f'{c.control_id}: {c.title}',
             'description': f'{c.failures} of {c.tests} attacks succeeded ({_pct(c.attack_success_rate)}); '
                            f'tolerance {_pct(c.max_attack_success_rate)}.',
@@ -230,12 +245,12 @@ def write_oscal(controls, meta, evidence, path: Path) -> Path:
             'related-observations': [{'observation-uuid': o} for o in obs_ids],
         })
     doc = {'assessment-results': {
-        'uuid': str(uuid.uuid4()),
+        'uuid': _uid(now, meta['version'], 'assessment-results'),
         'metadata': {'title': f'LLM red-team assessment: {meta["system"]} {meta["version"]}',
                      'last-modified': now, 'version': meta['version'], 'oscal-version': '1.1.2'},
         'import-ap': {'href': '#'},
         'results': [{
-            'uuid': str(uuid.uuid4()),
+            'uuid': _uid(now, meta['version'], 'result'),
             'title': f'Red-team assessment of {meta["system"]} {meta["version"]}',
             'description': f'Release recommendation: {meta["recommendation"]}.',
             'start': now, 'end': now,
@@ -245,5 +260,5 @@ def write_oscal(controls, meta, evidence, path: Path) -> Path:
             'findings': findings,
         }],
     }}
-    path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + '\n', encoding='utf-8', newline='\n')
     return path

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-redteam-evidence"
-version = "0.1.0"
+version = "0.2.0"
 description = "Turn LLM red-team results (garak, promptfoo) into audit evidence, OSCAL and a model release gate"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,7 +27,10 @@ Issues = "https://github.com/Mihirajmera/llm-redteam-evidence/issues"
 redteam-evidence = "redteam_evidence.__main__:main"
 
 [tool.setuptools]
-packages = ["redteam_evidence"]
+packages = ["redteam_evidence", "redteam_evidence.examples", "redteam_evidence.examples.v1", "redteam_evidence.examples.v2"]
 
 [tool.setuptools.package-data]
 redteam_evidence = ["*.yaml"]
+"redteam_evidence.examples" = ["*.md"]
+"redteam_evidence.examples.v1" = ["*"]
+"redteam_evidence.examples.v2" = ["*"]

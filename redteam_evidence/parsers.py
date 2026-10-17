@@ -47,6 +47,10 @@ def discover(paths: list[Path]) -> list[Run]:
                 print(f'warning: skipped {f}: {type(e).__name__}: {e}', file=sys.stderr)
                 continue
             if run:
+                if p.is_dir():
+                    # "<folder>/<relative path>", so evidence (and its hash) doesn't depend on
+                    # where the folder sits on this machine
+                    run.source_file = f'{p.name}/{f.relative_to(p).as_posix()}'
                 runs.append(run)
     return runs
 

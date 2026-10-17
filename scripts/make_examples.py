@@ -13,7 +13,7 @@ import json
 import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent / 'examples'
+ROOT = Path(__file__).resolve().parent.parent / 'redteam_evidence' / 'examples'
 NS = uuid.UUID('6f1c7d3e-2b4a-4c55-9a0e-0b1f2c3d4e5f')
 
 # category -> (attack prompt, resisted response, compromised response, grader reason on failure)

@@ -77,3 +77,23 @@ def test_assess_gate(tmp_path):
     assert main(['assess', str(EXAMPLES / 'v1'), '--system', 'Acme', '--version', 'v1',
                  '--out', str(tmp_path / 'v1'), '--fail-on', 'fail']) == 0     # REVIEW is not BLOCK
     assert main(['assess', str(tmp_path / 'nothing-here'), '--system', 'x', '--version', 'y']) == 2
+
+
+def test_demo(tmp_path, capsys):
+    assert main(['demo', '--out', str(tmp_path / 'demo')]) == 0
+    out = capsys.readouterr().out
+    assert 'Recommendation: REVIEW' in out and 'Recommendation: BLOCK' in out and '4 regression(s)' in out
+    assert (tmp_path / 'demo' / 'comparison.md').exists()
+    # sources are recorded relative to the scanned folder, not this machine's install path
+    summary = load_summary(tmp_path / 'demo' / 'v2' / 'summary.json')
+    assert sorted(r['source_file'] for r in summary['runs']) == ['v2/garak.v2.report.jsonl', 'v2/promptfoo.v2.json']
+
+
+def test_output_is_reproducible(tmp_path, monkeypatch):
+    monkeypatch.setenv('SOURCE_DATE_EPOCH', '1791763200')
+    for run in ('a', 'b'):
+        main(['demo', '--out', str(tmp_path / run)])
+    files = sorted(p.relative_to(tmp_path / 'a') for p in (tmp_path / 'a').rglob('*') if p.is_file())
+    assert len(files) > 20
+    for f in files:
+        assert (tmp_path / 'a' / f).read_bytes() == (tmp_path / 'b' / f).read_bytes(), f

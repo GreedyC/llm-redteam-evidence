@@ -7,3 +7,5 @@ build/
 out/
 assessment/
 comparison.md
+dist/
+redteam-demo/

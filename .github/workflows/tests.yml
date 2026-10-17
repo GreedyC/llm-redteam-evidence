@@ -21,27 +21,29 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install --require-hashes -r requirements.txt
 
       - name: Run tests
         run: pytest -q
 
+      - name: Wheel ships catalogs, examples and console script
+        run: python scripts/check_wheel.py
+
       - name: Examples are reproducible from the generator
         run: |
           python scripts/make_examples.py
-          git diff --exit-code examples/
+          git diff --exit-code redteam_evidence/examples/
 
-      # Install the package so the console script and bundled catalogs are exercised, then publish
-      # the example assessments and the v1 -> v2 comparison on the run's summary page.
-      - name: Sample assessment and release comparison
+      # Run the demo and check that the committed sample-output/ is exactly what this version produces.
+      - name: Demo and sample output are current
+        env:
+          SOURCE_DATE_EPOCH: '1791763200'
         run: |
-          pip install .
-          redteam-evidence assess examples/v1 --system "Acme Support Assistant" --version v1 --out out/v1
-          redteam-evidence assess examples/v2 --system "Acme Support Assistant" --version v2 --out out/v2
-          redteam-evidence compare out/v1/summary.json out/v2/summary.json --out out/comparison.md
-          cat out/comparison.md out/v2/report.md >> "$GITHUB_STEP_SUMMARY"
+          python -m redteam_evidence demo --out sample-output
+          git diff --exit-code sample-output/
+          cat sample-output/comparison.md sample-output/v2/report.md >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sample-assessment
-          path: out/
+          path: sample-output/

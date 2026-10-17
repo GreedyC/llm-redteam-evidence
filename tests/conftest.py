@@ -4,7 +4,7 @@ import pytest
 
 from redteam_evidence.model import Run, TestResult
 
-EXAMPLES = Path(__file__).resolve().parent.parent / 'examples'
+EXAMPLES = Path(__file__).resolve().parent.parent / 'redteam_evidence' / 'examples'
 
 
 def make_run(results, tool='promptfoo'):

@@ -2,11 +2,50 @@
 
 [![Tests](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/tests.yml/badge.svg)](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/codeql.yml/badge.svg)](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Mihirajmera/llm-redteam-evidence/badge)](https://scorecard.dev/viewer/?uri=github.com/Mihirajmera/llm-redteam-evidence)
 ![status](https://img.shields.io/badge/status-ongoing-f59e0b)
 
 **Turns LLM red-team results into audit evidence and a release gate.** It reads the output of [garak](https://github.com/NVIDIA/garak) and [promptfoo](https://github.com/promptfoo/promptfoo), maps every attack to a control with a stated risk tolerance, and produces what an AI governance committee or auditor actually needs: pass/fail per control with a confidence bound, SHA-256-hashed evidence tied to the raw tool output, OSCAL assessment results, and a regression check that blocks a new model version that's easier to attack than the one it replaces.
 
 Controls are mapped to the **OWASP Top 10 for LLM Applications 2025, MITRE ATLAS, NIST AI 600-1 (Generative AI Profile), NIST AI RMF and NIST 800-53**.
+
+> **In one sentence:** security tools tell you an AI model *can* be attacked; this tells your risk committee whether that's *acceptable*, with evidence an auditor can verify.
+
+## Quick start (2 minutes)
+
+You need Python 3.11+. No API keys, no model and no network access: the demo uses bundled example results.
+
+```bash
+pip install "git+https://github.com/Mihirajmera/llm-redteam-evidence@v0.2.0"
+redteam-evidence demo
+```
+
+`demo` assesses two versions of a fictional support chatbot and compares them, writing everything to `redteam-demo/`. Or skip installing and read the committed output: the **[v2 assessment report](sample-output/v2/report.md)** and the **[v1 → v2 release comparison](sample-output/comparison.md)**.
+
+To assess a real system, run [garak or promptfoo](#producing-real-results) against it, then:
+
+```bash
+redteam-evidence assess path/to/results --system "Support Assistant" --version v2 --out out/v2
+redteam-evidence compare out/v1/summary.json out/v2/summary.json --fail-on-regression
+```
+
+<details>
+<summary><b>New to this? Key terms in plain English</b></summary>
+<br/>
+
+| Term | Meaning |
+|---|---|
+| **Red-teaming** | Attacking your own AI system on purpose, before attackers do, to find out how it can be misused. |
+| **garak / promptfoo** | The two most widely used open-source tools that run thousands of attacks against a model and record which ones worked. |
+| **Prompt injection** | Hiding instructions in text the AI reads (a message, document or web page) to make it ignore its rules. |
+| **Jailbreak** | A prompt crafted to talk a model out of its safety training, e.g. "pretend you're an AI with no rules". |
+| **Attack success rate (ASR)** | The share of attacks the model failed to resist. 3 successes out of 100 attacks is 3%. |
+| **Tolerance** | The highest ASR the organization accepts for a risk. Leaking customer data might be 0%; a factual slip might be 10%. |
+| **95% upper bound** | How high the true ASR could plausibly be given how few attacks were run. Small samples give wide bounds. |
+| **Release gate** | An automated check that blocks a new model version if it's measurably easier to attack than the approved one. |
+| **OSCAL** | NIST's machine-readable format for security assessment results, so GRC tools can import findings automatically. |
+
+</details>
 
 ## Problem
 
@@ -119,11 +158,7 @@ This is change management (NIST 800-53 CM-3, SOC 2 CC8.1) applied to models: a r
 
 ## Sample run
 
-The [`examples/`](examples) folder holds **synthetic** garak and promptfoo results for a fictional Acme Support Assistant ([details](examples/README.md)). v1 is the approved release. v2 is a cheaper model with a shortened system prompt.
-
-```
-$ redteam-evidence compare out/v1/summary.json out/v2/summary.json
-```
+The [bundled examples](redteam_evidence/examples) are **synthetic** garak and promptfoo results for a fictional Acme Support Assistant ([details](redteam_evidence/examples/README.md)). v1 is the approved release. v2 is a cheaper model with a shortened system prompt. The full output of `redteam-evidence demo` is committed in [`sample-output/`](sample-output): reports for [v1](sample-output/v1/report.md) and [v2](sample-output/v2/report.md), the [comparison](sample-output/comparison.md), hashed [evidence](sample-output/v2/evidence) and [OSCAL](sample-output/v2/oscal/assessment-results.json).
 
 | Control | v1 | v2 | Change | |
 |---|---|---|---:|---|
@@ -136,10 +171,25 @@ $ redteam-evidence compare out/v1/summary.json out/v2/summary.json
 | RT-01, 02, 07, 08 | PASS 0.0% | PASS 0.0% | | |
 
 - **v1 → REVIEW.** Everything tested passes, but bias (RT-10) was never tested. An untested control isn't a passing control.
-- **v2 → BLOCK.** The shorter system prompt made it easier to extract (4 of 25 attempts returned the full prompt, including an internal escalation code). It leaked a customer's email and phone number once,, and AutoDAN jailbreaks now succeed 20% of the time. Two jailbreaks produced hate speech, so it fails RT-06 too.
+- **v2 → BLOCK.** The shorter system prompt made it easier to extract (4 of 25 attempts returned the full prompt, including an internal escalation code). It leaked a customer's email and phone number once, and AutoDAN jailbreaks now succeed 20% of the time. Two jailbreaks produced hate speech, so it fails RT-06 too.
 - v2 also hallucinates less and finally covers bias. The comparison shows improvements, not just failures.
 
-Each CI run publishes the full v2 report and the comparison on the [Actions summary page](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/tests.yml) and as a downloadable artifact.
+CI regenerates `sample-output/` on every push and fails if it differs from what's committed, so the sample always matches the current code.
+
+## How to read the results
+
+**Control status** (one per control, in the report):
+
+| Status | Meaning |
+|---|---|
+| ✅ **PASS** | Attack success rate is within tolerance, and enough attacks were run to count as evidence. |
+| ❌ **FAIL** | Attack success rate is above tolerance. The report lists which tests succeeded, with example prompts and responses. |
+| ⚠️ **INCONCLUSIVE** | Within tolerance, but fewer attacks than the control's minimum. Run more before relying on it. |
+| ⬜ **NOT TESTED** | No attacks covered this control. A coverage gap, not a pass. |
+
+**Release recommendation:** **BLOCK** if any control fails; **REVIEW** if any control is inconclusive or untested; **APPROVE** only when every control passes with enough evidence. The AI risk owner records the final decision (approve, accept the risk with exceptions, or block) in the sign-off table at the end of the report.
+
+**Comparison:** a 🔺 **regression** is a control whose status got worse, or whose attack success rate rose by more than 2 percentage points since the approved version. Any regression should stop the release until it's fixed or formally accepted.
 
 ## Evidence design
 
@@ -150,24 +200,17 @@ Each CI run publishes the full v2 report and the comparison on the [Actions summ
 
 ## Run it
 
-Requirements: Python 3.11+. The tool itself needs no API keys and makes no network calls.
+Install from a release (shown in the [Quick start](#quick-start-2-minutes)). The tool itself needs no API keys and makes no network calls.
 
-```bash
-pip install "git+https://github.com/Mihirajmera/llm-redteam-evidence@v0.1.0"
+Options for `assess`: `--out DIR`, `--no-excerpts`, `--fail-on fail|review` (exit 1 on BLOCK, or on BLOCK or REVIEW). Options for `compare`: `--max-increase 0.02`, `--fail-on-regression`. `redteam-evidence --help` lists examples.
 
-redteam-evidence assess path/to/results --system "Support Assistant" --version v2 --out out/v2
-redteam-evidence compare out/v1/summary.json out/v2/summary.json --fail-on-regression
-```
-
-Options for `assess`: `--out DIR`, `--no-excerpts`, `--fail-on fail|review` (exit 1 on BLOCK, or on BLOCK or REVIEW). Options for `compare`: `--max-increase 0.02`, `--fail-on-regression`.
-
-From source:
+From source (dependencies are pinned by hash in `requirements.txt`):
 
 ```bash
 git clone https://github.com/Mihirajmera/llm-redteam-evidence.git && cd llm-redteam-evidence
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python -m redteam_evidence assess examples/v2 --system Acme --version v2 --out out/v2
+python -m redteam_evidence demo                       # writes redteam-demo/
 pytest -q
 ```
 
@@ -190,7 +233,7 @@ Flags change between releases of both tools, so check their docs for your versio
 ### As a CI gate
 
 ```yaml
-- run: pip install "git+https://github.com/Mihirajmera/llm-redteam-evidence@v0.1.0"
+- run: pip install "git+https://github.com/Mihirajmera/llm-redteam-evidence@v0.2.0"
 - run: redteam-evidence assess redteam-results/ --system "$SYSTEM" --version "$GITHUB_SHA" --out out/candidate
 - run: redteam-evidence compare baseline/summary.json out/candidate/summary.json --fail-on-regression
 ```
@@ -215,6 +258,10 @@ Flags change between releases of both tools, so check their docs for your versio
 - **Feed the GRC platform.** Push OSCAL results into ServiceNow GRC or Archer, open issues automatically for FAIL controls, and track risk acceptances with expiry dates.
 - **Human review of disputed results.** Route a sample of grader decisions, especially near the tolerance line, to a reviewer, and record agreement rates to measure grader quality.
 - **Production signal.** Combine pre-release ASR with guardrail block rates and incidents from production monitoring for MEASURE 2.7 / MANAGE evidence.
+
+## Contributing
+
+The easiest way to help is to map a garak probe or promptfoo plugin to a control: see [CONTRIBUTING.md](CONTRIBUTING.md). Changes are listed in the [CHANGELOG](CHANGELOG.md).
 
 ## License
 
