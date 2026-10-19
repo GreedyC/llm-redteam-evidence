@@ -1,5 +1,6 @@
 # llm-redteam-evidence
 
+[![PyPI](https://img.shields.io/pypi/v/llm-redteam-evidence)](https://pypi.org/project/llm-redteam-evidence/)
 [![Tests](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/tests.yml/badge.svg)](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/codeql.yml/badge.svg)](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Mihirajmera/llm-redteam-evidence/badge)](https://scorecard.dev/viewer/?uri=github.com/Mihirajmera/llm-redteam-evidence)
@@ -16,7 +17,7 @@ Controls are mapped to the **OWASP Top 10 for LLM Applications 2025, MITRE ATLAS
 You need Python 3.11+. No API keys, no model and no network access: the demo uses bundled example results.
 
 ```bash
-pip install "git+https://github.com/Mihirajmera/llm-redteam-evidence@v0.2.0"
+pip install llm-redteam-evidence
 redteam-evidence demo
 ```
 
@@ -235,7 +236,7 @@ Flags change between releases of both tools, so check their docs for your versio
 ### As a CI gate
 
 ```yaml
-- run: pip install "git+https://github.com/Mihirajmera/llm-redteam-evidence@v0.2.0"
+- run: pip install llm-redteam-evidence
 - run: redteam-evidence assess redteam-results/ --system "$SYSTEM" --version "$GITHUB_SHA" --out out/candidate
 - run: redteam-evidence compare baseline/summary.json out/candidate/summary.json --fail-on-regression
 ```
