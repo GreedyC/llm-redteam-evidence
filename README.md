@@ -1,5 +1,6 @@
 # llm-redteam-evidence
 
+[![PyPI](https://img.shields.io/pypi/v/llm-redteam-evidence)](https://pypi.org/project/llm-redteam-evidence/)
 [![Tests](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/tests.yml/badge.svg)](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/codeql.yml/badge.svg)](https://github.com/Mihirajmera/llm-redteam-evidence/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Mihirajmera/llm-redteam-evidence/badge)](https://scorecard.dev/viewer/?uri=github.com/Mihirajmera/llm-redteam-evidence)
@@ -16,11 +17,13 @@ Controls are mapped to the **OWASP Top 10 for LLM Applications 2025, MITRE ATLAS
 You need Python 3.11+. No API keys, no model and no network access: the demo uses bundled example results.
 
 ```bash
-pip install "git+https://github.com/Mihirajmera/llm-redteam-evidence@v0.2.0"
+pip install llm-redteam-evidence
 redteam-evidence demo
 ```
 
 `demo` assesses two versions of a fictional support chatbot and compares them, writing everything to `redteam-demo/`. Or skip installing and read the committed output: the **[v2 assessment report](sample-output/v2/report.md)** and the **[v1 → v2 release comparison](sample-output/comparison.md)**.
+
+**Real-world run:** [garak 0.17 against Llama 3.2 3B](case-studies/llama3.2-3b-garak/) (1,280 attacks, BLOCK). It includes a human review of the evidence that caught garak's jailbreak detector mis-scoring 2 of 3 AutoDAN responses.
 
 To assess a real system, run [garak or promptfoo](#producing-real-results) against it, then:
 
@@ -233,7 +236,7 @@ Flags change between releases of both tools, so check their docs for your versio
 ### As a CI gate
 
 ```yaml
-- run: pip install "git+https://github.com/Mihirajmera/llm-redteam-evidence@v0.2.0"
+- run: pip install llm-redteam-evidence
 - run: redteam-evidence assess redteam-results/ --system "$SYSTEM" --version "$GITHUB_SHA" --out out/candidate
 - run: redteam-evidence compare baseline/summary.json out/candidate/summary.json --fail-on-regression
 ```
